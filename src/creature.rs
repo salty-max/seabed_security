@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub struct Creature {
     pub id: usize,
-    pub color: u8,
-    pub c_type: u8,
+    pub color: i8,
+    pub c_type: i8,
     pub my_scan: bool,
     pub foe_scan: bool,
     pub is_visible: bool,

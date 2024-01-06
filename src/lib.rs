@@ -49,19 +49,20 @@ impl GameState {
         self.get_input();
 
         let light = self.turns % 10 == 0;
+        // let light = false;
 
         let (command, target_id) = 'drone_1_command: {
             let drone = &self.my_drones[0];
-            // if !drone.scans.is_empty() {
-            //     break 'drone_1_command (
-            //         Command::Move {
-            //             x: drone.x,
-            //             y: 500,
-            //             light,
-            //         },
-            //         None,
-            //     );
-            // }
+            if !drone.scans.is_empty() {
+                break 'drone_1_command (
+                    Command::Move {
+                        x: drone.x,
+                        y: 500,
+                        light,
+                    },
+                    None,
+                );
+            }
 
             for blip in drone.radar_blips.iter() {
                 let Some(creature) = self.creatures.get(&blip.creature_id) else {
@@ -69,7 +70,7 @@ impl GameState {
                     break 'drone_1_command (Command::Move { x, y, light }, None);
                 };
 
-                if !creature.my_scan {
+                if !creature.my_scan && creature.c_type >= 0 {
                     let [x, y] = drone.move_direction(&blip.direction);
                     break 'drone_1_command (Command::Move { x, y, light }, Some(creature.id));
                 }
@@ -87,13 +88,13 @@ impl GameState {
 
         let command_2 = 'drone_2_command: {
             let drone = &self.my_drones[1];
-            // if !drone.scans.is_empty() {
-            //     break 'drone_2_command Command::Move {
-            //         x: drone.x,
-            //         y: 500,
-            //         light,
-            //     };
-            // }
+            if !drone.scans.is_empty() {
+                break 'drone_2_command Command::Move {
+                    x: drone.x,
+                    y: 500,
+                    light,
+                };
+            }
 
             for blip in drone.radar_blips.iter() {
                 if blip.creature_id == target_id.unwrap_or_default() {
@@ -105,7 +106,7 @@ impl GameState {
                     break 'drone_2_command Command::Move { x, y, light };
                 };
 
-                if !creature.my_scan {
+                if !creature.my_scan && creature.c_type >= 0 {
                     let [x, y] = drone.move_direction(&blip.direction);
                     break 'drone_2_command Command::Move { x, y, light };
                 }
@@ -151,7 +152,6 @@ impl GameState {
 
             let drone_id = inputs[0].parse::<usize>().unwrap();
             let Some(drone) = self.my_drones.iter_mut().find(move |d| d.id == drone_id) else {
-                eprintln!("foe drone");
                 continue;
             };
 
@@ -175,7 +175,6 @@ impl GameState {
             let creature_vy = inputs[4].parse().unwrap();
 
             let Some(creature) = self.creatures.get_mut(&creature_id) else {
-                eprintln!("Missing creature when updating info: {creature_id}");
                 continue;
             };
 
