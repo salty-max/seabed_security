@@ -6,16 +6,16 @@ use std::{collections::HashMap, io};
 
 use command::Command;
 use creature::Creature;
-use drone::Drone;
+use drone::{Drone, RadarBlip};
 
 #[derive(Debug)]
 pub struct GameState {
+    turns: usize,
     creatures: HashMap<usize, Creature>,
     my_score: u8,
     foe_score: u8,
     my_drones: Vec<Drone>,
     foe_drones: Vec<Drone>,
-    scans: HashMap<usize, usize>,
 }
 
 impl GameState {
@@ -35,63 +35,84 @@ impl GameState {
         }
 
         Self {
+            turns: 0,
             creatures,
             my_score: 0,
             foe_score: 0,
             my_drones: vec![],
             foe_drones: vec![],
-            scans: HashMap::new(),
         }
     }
 
-    pub fn turn(&mut self) {
+    pub fn turn(&mut self) -> Command {
+        self.turns += 1;
         self.get_input();
-        self.my_drones
-            .iter()
-            .for_each(|_| println!("{}", Command::Wait { light: false }));
+
+        let light = self.turns % 10 == 0;
+
+        for drone in self.my_drones.iter() {
+            for blip in drone.radar_blips.iter() {
+                let Some(creature) = self.creatures.get(&blip.creature_id) else {
+                    let [x, y] = drone.move_direction(&blip.direction);
+                    return Command::Move { x, y, light };
+                };
+
+                if !creature.my_scan {
+                    let [x, y] = drone.move_direction(&blip.direction);
+                    return Command::Move { x, y, light };
+                }
+            }
+        }
+
+        Command::Move {
+            x: 5000,
+            y: 0,
+            light,
+        }
     }
 
     fn get_input(&mut self) {
         self.my_score = self.get_u8();
         self.foe_score = self.get_u8();
 
-        let my_scan_count = self.get_u8();
-        let my_scans = self.get_ids(my_scan_count);
-        let foe_scan_count = self.get_u8();
-        let foe_scans = self.get_ids(foe_scan_count);
-
-        self.scan_creatures(my_scans, true);
-        self.scan_creatures(foe_scans, false);
+        let _my_scan_count = self.get_u8();
+        let _my_scans = self.get_ids(_my_scan_count);
+        let _foe_scan_count = self.get_u8();
+        let _foe_scans = self.get_ids(_foe_scan_count);
 
         let my_drone_count = self.get_u8();
+        self.my_drones.clear();
         for _ in 0..my_drone_count {
             let drone = Drone::new_from_input(false);
-            if let Some(d) = self.my_drones.get_mut(drone.id) {
-                *d = drone;
-            } else {
-                self.my_drones.push(drone);
-            }
+            self.my_drones.push(drone);
         }
 
         let foe_drone_count = self.get_u8();
+        self.foe_drones.clear();
         for _ in 0..foe_drone_count {
             let drone = Drone::new_from_input(true);
-            if let Some(d) = self.foe_drones.get_mut(drone.id) {
-                *d = drone;
-            } else {
-                self.foe_drones.push(drone);
-            }
+            self.foe_drones.push(drone);
         }
 
         let drone_scan_count = self.get_u8();
         for _ in 0..drone_scan_count {
             let input_line = self.get_input_line();
             let inputs = input_line.trim().split(' ').collect::<Vec<_>>();
-            let drone_id = inputs[0].parse().unwrap();
-            let creature_id = inputs[1].parse().unwrap();
 
-            self.scans.insert(drone_id, creature_id);
+            let drone_id = inputs[0].parse::<usize>().unwrap();
+            let Some(drone) = self.my_drones.iter_mut().find(move |d| d.id == drone_id) else {
+                eprintln!("foe drone");
+                continue;
+            };
+
+            let creature_id = inputs[1].parse::<usize>().unwrap();
+            drone.scans.push(creature_id);
+            self.scan_creatures(vec![creature_id], true);
         }
+
+        self.creatures
+            .iter_mut()
+            .for_each(|(_, c)| c.is_visible = false);
 
         let visible_creature_count = self.get_u8();
         for _ in 0..visible_creature_count {
@@ -112,15 +133,33 @@ impl GameState {
             creature.y = creature_y;
             creature.vx = creature_vx;
             creature.vy = creature_vy;
+            creature.is_visible = true;
         }
 
         let radar_blip_count = self.get_u8();
+
+        self.my_drones
+            .iter_mut()
+            .for_each(|d| d.radar_blips.clear());
+
         for _ in 0..radar_blip_count {
             let input_line = self.get_input_line();
-            let inputs = input_line.trim().split(' ').collect::<Vec<_>>();
-            let drone_id = inputs[0];
-            let creature_id = inputs[1];
-            let radar = inputs[2];
+            let inputs = input_line
+                .trim()
+                .split_ascii_whitespace()
+                .collect::<Vec<_>>();
+            let drone_id = inputs[0].parse::<usize>().unwrap();
+            let creature_id = inputs[1].parse::<usize>().unwrap();
+            let direction = inputs[2].to_string();
+
+            let Some(drone) = self.my_drones.iter_mut().find(move |d| d.id == drone_id) else {
+                eprintln!("Cannot find drone {drone_id}");
+                continue;
+            };
+            drone.radar_blips.push(RadarBlip {
+                creature_id,
+                direction,
+            });
         }
     }
 
@@ -158,4 +197,14 @@ impl GameState {
             }
         }
     }
+
+    // fn find_unscanned_creature(&self) -> Option<&Creature> {
+    //     for creature in self.creatures.values() {
+    //         if !creature.my_scan {
+    //             return Some(creature);
+    //         }
+    //     }
+
+    //     None
+    // }
 }

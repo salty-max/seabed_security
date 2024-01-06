@@ -5,6 +5,7 @@ fn main() {
     let mut state = GameState::init();
 
     loop {
-        state.turn();
+        let command = state.turn();
+        println!("{command}")
     }
 }

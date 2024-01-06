@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 pub enum Command {
-    Move { x: u32, y: u32, light: bool },
+    Move { x: i32, y: i32, light: bool },
     Wait { light: bool },
 }
 

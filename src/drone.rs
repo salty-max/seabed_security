@@ -3,11 +3,13 @@ use std::io;
 #[derive(Debug, Default)]
 pub struct Drone {
     pub id: usize,
-    pub x: u32,
-    pub y: u32,
+    pub x: i32,
+    pub y: i32,
     pub emergency: u8,
     pub battery: u8,
     pub is_foe: bool,
+    pub radar_blips: Vec<RadarBlip>,
+    pub scans: Vec<usize>,
 }
 
 impl Drone {
@@ -29,6 +31,24 @@ impl Drone {
             emergency,
             battery,
             is_foe,
+            radar_blips: vec![],
+            scans: vec![],
         }
     }
+
+    pub fn move_direction(&self, dir: &str) -> [i32; 2] {
+        match dir {
+            "TL" => [self.x - 600, self.y - 600],
+            "TR" => [self.x + 600, self.y - 600],
+            "BL" => [self.x - 600, self.y + 600],
+            "BR" => [self.x + 600, self.y + 600],
+            _ => [self.x, self.y + 300],
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RadarBlip {
+    pub creature_id: usize,
+    pub direction: String,
 }
